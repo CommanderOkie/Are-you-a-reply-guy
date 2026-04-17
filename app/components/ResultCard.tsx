@@ -16,6 +16,12 @@ function getScoreGradient(score: number): string {
   return "var(--gradient-score-low)";
 }
 
+function getScoreColor(score: number): string {
+  if (score >= 70) return "#ef4444";
+  if (score >= 40) return "#f59e0b";
+  return "#22c55e";
+}
+
 function getPersonaBadgeClass(persona: PersonaType): string {
   switch (persona) {
     case "The Elite Glazer":
@@ -63,7 +69,7 @@ export default function ResultCard({ result, onReset }: Props) {
       if (!cardRef.current) return;
       await new Promise((r) => setTimeout(r, 100));
       const canvas = await html2canvas(cardRef.current, {
-        backgroundColor: "#111124",
+        backgroundColor: "#0e0e1e",
         scale: 2,
         useCORS: true,
         logging: false,
@@ -176,24 +182,43 @@ export default function ResultCard({ result, onReset }: Props) {
             </div>
             <div className="score-hero-handle">@{username}</div>
 
-            <div className="intensity-score-container">
-              <div
-                className="intensity-score-number"
-                style={{
-                  background: getScoreGradient(intensityScore),
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                  animation: scoreVisible
-                    ? "scoreReveal 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both"
-                    : "none",
-                  opacity: scoreVisible ? 1 : 0,
-                }}
-              >
-                {intensityScore}
-              </div>
-              <div className="intensity-score-label">
-                Intensity Score / 100
+            <div className="score-ring-container">
+              <svg className="score-ring-svg" viewBox="0 0 160 160">
+                <circle
+                  className="score-ring-bg"
+                  cx="80" cy="80" r="70"
+                />
+                <circle
+                  className="score-ring-progress"
+                  cx="80" cy="80" r="70"
+                  style={{
+                    stroke: getScoreColor(intensityScore),
+                    strokeDasharray: `${2 * Math.PI * 70}`,
+                    strokeDashoffset: scoreVisible
+                      ? `${2 * Math.PI * 70 * (1 - intensityScore / 100)}`
+                      : `${2 * Math.PI * 70}`,
+                  }}
+                />
+              </svg>
+              <div className="score-ring-inner">
+                <div
+                  className="intensity-score-number"
+                  style={{
+                    background: getScoreGradient(intensityScore),
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text",
+                    animation: scoreVisible
+                      ? "scoreCountUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both"
+                      : "none",
+                    opacity: scoreVisible ? 1 : 0,
+                  }}
+                >
+                  {intensityScore}
+                </div>
+                <div className="intensity-score-label">
+                  Intensity Score / 100
+                </div>
               </div>
             </div>
           </div>
@@ -311,70 +336,21 @@ export default function ResultCard({ result, onReset }: Props) {
         <div className="cta-loop">Now check your friends 👇</div>
 
         {onReset && (
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "center",
-              marginTop: "16px",
-            }}
-          >
-            <button
-              className="analyze-btn"
-              onClick={onReset}
-              style={{
-                width: "100%",
-                justifyContent: "center",
-                padding: "14px",
-                fontSize: "1rem",
-              }}
-            >
-              <span aria-hidden>↺</span> Try another handle
-            </button>
-          </div>
+          <button className="reset-btn" onClick={onReset}>
+            <span aria-hidden>↺</span> Try another handle
+          </button>
         )}
 
         {/* Breakdown Section */}
-        <div
-          style={{
-            marginTop: 20,
-            padding: "16px 20px",
-            background: "rgba(255,255,255,0.02)",
-            borderRadius: "var(--radius-lg)",
-            border: "1px solid rgba(255,255,255,0.06)",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "0.72rem",
-              fontWeight: 700,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase" as const,
-              color: "var(--text-muted)",
-              marginBottom: 12,
-            }}
-          >
+        <div className="breakdown-section">
+          <div className="breakdown-title">
             📊 Full Breakdown
           </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(2, 1fr)",
-              gap: 8,
-            }}
-          >
-            <BreakdownItem
-              label="Total Posts"
-              value={totalPostsAnalyzed}
-            />
+          <div className="breakdown-grid">
+            <BreakdownItem label="Total Posts" value={totalPostsAnalyzed} />
             <BreakdownItem label="Self-Threads" value={totalSelfReplies} />
-            <BreakdownItem
-              label="Outward Replies"
-              value={totalOutwardReplies}
-            />
-            <BreakdownItem
-              label="Unique Targets"
-              value={topTargets.length}
-            />
+            <BreakdownItem label="Outward Replies" value={totalOutwardReplies} />
+            <BreakdownItem label="Unique Targets" value={topTargets.length} />
           </div>
         </div>
       </div>
@@ -420,35 +396,9 @@ function BreakdownItem({
   value: number;
 }) {
   return (
-    <div
-      style={{
-        padding: "10px 12px",
-        background: "rgba(255,255,255,0.02)",
-        borderRadius: "var(--radius-sm)",
-        border: "1px solid rgba(255,255,255,0.04)",
-      }}
-    >
-      <div
-        style={{
-          fontSize: "1.1rem",
-          fontWeight: 800,
-          fontFamily: '"Space Grotesk", sans-serif',
-          color: "var(--text-primary)",
-        }}
-      >
-        {value}
-      </div>
-      <div
-        style={{
-          fontSize: "0.68rem",
-          color: "var(--text-muted)",
-          textTransform: "uppercase" as const,
-          letterSpacing: "0.05em",
-          fontWeight: 600,
-        }}
-      >
-        {label}
-      </div>
+    <div className="breakdown-item">
+      <div className="breakdown-item-value">{value}</div>
+      <div className="breakdown-item-label">{label}</div>
     </div>
   );
 }

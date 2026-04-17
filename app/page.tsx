@@ -13,6 +13,36 @@ const LOADING_STEPS = [
 
 const EXAMPLE_ACCOUNTS = ["elonmusk", "sama", "naval", "pmarca", "levelsio"];
 
+const FAKE_TICKER = [
+  { user: "@cryptobro99", score: 87, persona: "The Reply Demon" },
+  { user: "@web3maxi", score: 42, persona: "The Socialite" },
+  { user: "@defi_whale", score: 94, persona: "The Elite Glazer" },
+  { user: "@nft_degen", score: 12, persona: "The Lurker" },
+];
+
+const FAQ_ITEMS = [
+  {
+    q: "How does the audit work?",
+    a: "We scan your Twitter/X Replies tab using their API, analyzing your last 7 days of activity. We count your outward replies, self-threads, and identify your most-replied-to accounts.",
+  },
+  {
+    q: "Is my data stored?",
+    a: "No. We don't store your tweets, replies, or any personal data. The analysis is performed in real-time and results are cached briefly for performance only.",
+  },
+  {
+    q: "What's the Intensity Score?",
+    a: "It's a 0-100 score based on your daily reply velocity, reply percentage, target concentration, and total volume. Higher scores mean you're more of a reply guy.",
+  },
+  {
+    q: "Why does it take 15-60 seconds?",
+    a: "We scan up to 50 pages of your Twitter activity to get the most accurate picture. Very active users (300+ replies/day) require more pages to cover the full 7-day window.",
+  },
+  {
+    q: "Can I audit someone else?",
+    a: "Yes! Enter any public Twitter/X handle to see their reply intensity. Find out who's the biggest reply guy in your circle.",
+  },
+];
+
 export default function Home() {
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,8 +55,8 @@ export default function Home() {
     totalAudits: number;
     trending: string[];
   } | null>(null);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-  // Fetch social proof stats on mount
   useEffect(() => {
     fetch("/api/stats")
       .then((res) => res.json())
@@ -34,7 +64,6 @@ export default function Home() {
       .catch(() => {});
   }, []);
 
-  // Cycle loading messages while analyzing
   useEffect(() => {
     if (!loading) return;
     setLoadingStep(0);
@@ -69,7 +98,6 @@ export default function Home() {
         body: JSON.stringify({ username: raw }),
       });
 
-      // HTTP 202 — Waitlist
       if (res.status === 202) {
         const data = await res.json();
         setQueueMessage(
@@ -79,7 +107,6 @@ export default function Home() {
         return;
       }
 
-      // 429 — Rate limited
       if (res.status === 429) {
         setQueueMessage(
           "Cooling down... Too many requests. Retrying in 10s 🐢"
@@ -131,13 +158,15 @@ export default function Home() {
     handleAnalyze(handle);
   };
 
+  const showLanding = !loading && !result && !error;
+
   return (
     <main>
-      {/* Animated background */}
+      {/* Background elements — subtle, Dimension-style */}
       <div className="bg-grid" aria-hidden />
-      <div className="bg-orb bg-orb-1" aria-hidden />
-      <div className="bg-orb bg-orb-2" aria-hidden />
-      <div className="bg-orb bg-orb-3" aria-hidden />
+      <div className="bg-arc" aria-hidden />
+      <div className="bg-arc-2" aria-hidden />
+      <div className="bg-glow" aria-hidden />
 
       {/* ── Hero ── */}
       <header className="header">
@@ -147,13 +176,13 @@ export default function Home() {
         </div>
 
         <h1 className="header-title">
-          Are You a{" "}
-          <span className="gradient-text">Reply Guy?</span>
+          Are you a<br />
+          <span className="gradient-text">reply guy?</span>
         </h1>
 
         <p className="header-sub">
-          Enter your Twitter/X handle and get a brutally honest audit of your
-          replying habits. Who do you glaze? How intense are you? Find out. 💀
+          Enter any Twitter/X handle and get a brutally honest audit of
+          replying habits. We scan 7 days of data to find the truth.
         </p>
 
         {stats && stats.totalAudits > 0 && (
@@ -171,12 +200,12 @@ export default function Home() {
             id="username-input"
             className="username-input"
             type="text"
-            placeholder="@yourusername"
+            placeholder="Enter username..."
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAnalyze()}
             disabled={loading}
-            aria-label="Your Twitter/X username"
+            aria-label="Twitter/X username"
             spellCheck={false}
             autoComplete="off"
             autoCapitalize="off"
@@ -187,27 +216,10 @@ export default function Home() {
             onClick={() => handleAnalyze()}
             disabled={loading || !username.trim()}
           >
-            {loading ? (
-              <>
-                <span
-                  style={{
-                    display: "inline-block",
-                    animation: "spin 0.8s linear infinite",
-                  }}
-                >
-                  ⟳
-                </span>
-                Auditing…
-              </>
-            ) : (
-              <>
-                <span>💀</span> Audit Me
-              </>
-            )}
+            {loading ? "Auditing…" : "Audit"}
           </button>
         </div>
 
-        {/* Quick-picks */}
         {!loading && !result && (
           <div className="example-row" aria-label="Try these">
             <span className="example-label">
@@ -230,13 +242,46 @@ export default function Home() {
         )}
       </section>
 
+      {/* ── Live Ticker ── */}
+      {showLanding && (
+        <div className="ticker-section">
+          <div className="ticker-container">
+            <div className="ticker-header">
+              <div className="ticker-live-dot" />
+              <span>Recent Audits</span>
+            </div>
+            <div className="ticker-scroll">
+              {FAKE_TICKER.map((item, i) => (
+                <div
+                  key={i}
+                  className="ticker-item"
+                  style={{ animationDelay: `${i * 0.08}s` }}
+                >
+                  <span>
+                    <span className="ticker-user">{item.user}</span>{" "}
+                    <span className="ticker-persona">— {item.persona}</span>
+                  </span>
+                  <span
+                    className={`ticker-score ${
+                      item.score >= 70
+                        ? "ticker-score-high"
+                        : item.score >= 40
+                        ? "ticker-score-mid"
+                        : "ticker-score-low"
+                    }`}
+                  >
+                    {item.score}/100
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Loading ── */}
       {loading && (
-        <section
-          className="loading-state"
-          aria-live="polite"
-          aria-label="Analyzing"
-        >
+        <section className="loading-state" aria-live="polite">
           <div className="loading-spinner" />
           <p
             className="loading-text"
@@ -245,7 +290,7 @@ export default function Home() {
             {queueMessage ? queueMessage : LOADING_STEPS[loadingStep].text}
           </p>
           <p className="loading-sub">
-            Scraping your Replies tab — takes ~15-25s ⚡
+            Scraping the Replies tab — takes ~15-60s ⚡
           </p>
           <div className="loading-steps">
             {LOADING_STEPS.slice(0, loadingStep + 1).map((step, i) => (
@@ -298,14 +343,87 @@ export default function Home() {
         </div>
       )}
 
+      {/* ── How It Works ── */}
+      {showLanding && (
+        <>
+          <div className="section-divider" />
+          <section className="how-section">
+            <h2 className="how-title">How it works</h2>
+            <p className="how-subtitle">
+              Three steps to discover the truth about your reply habits
+            </p>
+            <div className="how-steps">
+              <div className="how-step">
+                <div>
+                  <div className="how-step-number">1</div>
+                  <span className="how-step-icon">🔍</span>
+                </div>
+                <div>
+                  <div className="how-step-title">Enter a handle</div>
+                  <p className="how-step-desc">
+                    Type any public Twitter/X username to begin
+                  </p>
+                </div>
+              </div>
+              <div className="how-step">
+                <div>
+                  <div className="how-step-number">2</div>
+                  <span className="how-step-icon">📊</span>
+                </div>
+                <div>
+                  <div className="how-step-title">We scan 7 days</div>
+                  <p className="how-step-desc">
+                    Our engine crawls up to 2,000 posts from the Replies tab
+                  </p>
+                </div>
+              </div>
+              <div className="how-step">
+                <div>
+                  <div className="how-step-number">3</div>
+                  <span className="how-step-icon">💀</span>
+                </div>
+                <div>
+                  <div className="how-step-title">Get your verdict</div>
+                  <p className="how-step-desc">
+                    See your score, persona, and who you glaze the most
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <div className="section-divider" />
+
+          <section className="faq-section">
+            <h2 className="faq-title">Frequently asked questions</h2>
+            {FAQ_ITEMS.map((item, i) => (
+              <div key={i} className="faq-item">
+                <button
+                  className="faq-question"
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                >
+                  <span>{item.q}</span>
+                  <span
+                    className={`faq-chevron ${openFaq === i ? "open" : ""}`}
+                  >
+                    ▾
+                  </span>
+                </button>
+                {openFaq === i && <div className="faq-answer">{item.a}</div>}
+              </div>
+            ))}
+          </section>
+        </>
+      )}
+
       <footer className="site-footer">
-        Not affiliated with X / Twitter &middot; For entertainment only
+        Not affiliated with X / Twitter · For entertainment only
         <br />
         <a
           href="https://x.com/okiewins"
           target="_blank"
           rel="noopener noreferrer"
-          style={{ marginTop: 8, display: "inline-block" }}
+          style={{ marginTop: 6, display: "inline-block" }}
         >
           Made by Avee
         </a>
