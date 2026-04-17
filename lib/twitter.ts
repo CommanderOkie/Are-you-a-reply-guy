@@ -600,6 +600,7 @@ interface AlgorithmResult {
   personaEmoji: string;
   personaDescription: string;
   savageQuote: string;
+  themeClass: string;
   intensityScore: number;
   replyRatio: number;
   dailyVelocity: number;
