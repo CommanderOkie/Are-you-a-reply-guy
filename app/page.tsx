@@ -177,7 +177,13 @@ export default function Home() {
 
         <h1 className="header-title">
           Are you a<br />
-          <span className="gradient-text">reply guy?</span>
+          <span>
+            <span className="gradient-text">reply </span>
+            <span className="glitch-swap-container">
+              <span className="glitch-word"><span className="gradient-text">guy?</span></span>
+              <span className="glitch-word"><span className="gradient-text">gal?</span></span>
+            </span>
+          </span>
         </h1>
 
         <p className="header-sub">

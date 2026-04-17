@@ -22,23 +22,6 @@ function getScoreColor(score: number): string {
   return "#22c55e";
 }
 
-function getPersonaBadgeClass(persona: PersonaType): string {
-  switch (persona) {
-    case "The Elite Glazer":
-      return "persona-badge-glazer";
-    case "The Reply Demon":
-      return "persona-badge-demon";
-    case "The Main Character":
-      return "persona-badge-main";
-    case "The Lurker":
-      return "persona-badge-lurker";
-    case "The Socialite":
-      return "persona-badge-socialite";
-    default:
-      return "persona-badge-socialite";
-  }
-}
-
 function getBarColor(idx: number): string {
   const colors = ["#f472b6", "#a855f7", "#3b82f6", "#06b6d4", "#22c55e"];
   return colors[idx % colors.length];
@@ -132,6 +115,7 @@ export default function ResultCard({ result, onReset }: Props) {
     personaEmoji,
     personaDescription,
     savageQuote,
+    themeClass,
     intensityScore,
     replyRatio,
     dailyVelocity,
@@ -225,7 +209,7 @@ export default function ResultCard({ result, onReset }: Props) {
 
           {/* Persona */}
           <div className="persona-section">
-            <div className={`persona-badge ${getPersonaBadgeClass(persona)}`}>
+            <div className={`persona-badge ${themeClass}`}>
               <span>{personaEmoji}</span>
               <span>{persona}</span>
             </div>

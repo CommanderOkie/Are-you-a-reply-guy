@@ -38,12 +38,7 @@ const CONCURRENCY = 1; // Sequential pagination — no need for parallel as we p
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type PersonaType =
-  | "The Elite Glazer"
-  | "The Reply Demon"
-  | "The Main Character"
-  | "The Lurker"
-  | "The Socialite";
+export type PersonaType = string;
 
 export interface TopTarget {
   handle: string;
@@ -60,6 +55,7 @@ export interface IntensityAudit {
   personaEmoji: string;
   personaDescription: string;
   savageQuote: string;
+  themeClass: string;
   intensityScore: number; // 0-100
   replyRatio: number; // % of all posts that are outward replies
   dailyVelocity: number; // avg replies per day
@@ -505,7 +501,14 @@ async function fetchRepliesTab(
         if (!parsed || seenIds.has(parsed.id)) continue;
         seenIds.add(parsed.id);
 
-        if (parsed.createdAt > 0 && parsed.createdAt < oldestOnPage) {
+        // For determining the actual timeline progress, ignore retweet timestamps,
+        // since retweeting an ancient tweet shouldn't incorrectly signal the end of the 7-day window.
+        if (
+          !parsed.isRetweet &&
+          parsed.createdAt > 0 &&
+          parsed.createdAt < oldestOnPage &&
+          parsed.authorHandle.toLowerCase() === userHandle.toLowerCase()
+        ) {
           oldestOnPage = parsed.createdAt;
         }
 
@@ -529,7 +532,12 @@ async function fetchRepliesTab(
           if (!parsed || seenIds.has(parsed.id)) continue;
           seenIds.add(parsed.id);
 
-          if (parsed.createdAt > 0 && parsed.createdAt < oldestOnPage) {
+          if (
+            !parsed.isRetweet &&
+            parsed.createdAt > 0 &&
+            parsed.createdAt < oldestOnPage &&
+            parsed.authorHandle.toLowerCase() === userHandle.toLowerCase()
+          ) {
             oldestOnPage = parsed.createdAt;
           }
 
@@ -603,63 +611,248 @@ interface AlgorithmResult {
   windowDays: number;
 }
 
-const SAVAGE_QUOTES: Record<PersonaType, string[]> = {
-  "The Elite Glazer": [
-    "You don't reply to tweets, you write love letters 💌",
-    "That person's notifications? That's basically YOUR profile page 🍩",
-    "You're not a fan, you're a franchise 💀",
-    "Bro is one reply away from a restraining order 📋",
-    "You hit reply faster than they hit tweet 🏃‍♂️💨",
-  ],
-  "The Reply Demon": [
-    "You reply more than some people breathe 💀",
-    "Your keyboard needs therapy from the way you abuse it 🔥",
-    "Twitter should charge you a subscription just for replying 💸",
-    "You're not on Twitter, Twitter is on YOU 🧠",
-    "Most people scroll. You type. At an alarming rate 🚨",
-  ],
-  "The Main Character": [
-    "You're literally having a conversation with yourself 🪞",
-    "Your threads have more chapters than a Harry Potter book 📚",
-    "Nobody asked but you answered... to yourself... 15 times 🤡",
-    "Self-replying isn't a hobby, it's a personality disorder 🩺",
-    "You don't need followers, you ARE your audience 🎭",
-  ],
-  "The Lurker": [
-    "You opened Twitter and chose silence 🤫",
-    "Your reply button is collecting dust 🕸️",
-    "Are you sure you even USE this app? 👀",
-    "The quietest person in every room, including the internet 🦗",
-    "You consume more than you create — respect the stealth 🥷",
-  ],
-  "The Socialite": [
-    "Spreading the love evenly — nobody gets too much attention 🦋",
-    "You reply like a diplomat — balanced and measured 🤝",
-    "A healthy reply diet! Someone's emotionally stable 💅",
-    "You interact with everyone. How civic of you 🏛️",
-    "Normal reply behavior detected. How boring... wait, that's good 😂",
-  ],
-};
+type ArchetypeKey = "GHOST" | "CASUAL" | "REGULAR" | "ADDICT" | "DEMON" | "GLAZER" | "MAIN_CHARACTER";
 
-const PERSONA_DESCRIPTIONS: Record<PersonaType, string> = {
-  "The Elite Glazer":
-    "Over 40% of your replies go to ONE person. That's not engagement, that's devotion.",
-  "The Reply Demon":
-    "You average more than 15 replies per day. Your timeline IS your replies.",
-  "The Main Character":
-    "You mostly reply to yourself. You're having a public monologue.",
-  "The Lurker":
-    "Barely any outward replies detected. You watch from the shadows.",
-  "The Socialite":
-    "Balanced replier. No single target dominates your attention. Healthy!",
-};
+interface ArchetypeData {
+  themeClass: string;
+  description: string;
+  emojis: string[];
+  labels: string[];
+  quotes: string[];
+}
 
-const PERSONA_EMOJIS: Record<PersonaType, string> = {
-  "The Elite Glazer": "🍩",
-  "The Reply Demon": "💀",
-  "The Main Character": "🪞",
-  "The Lurker": "🦗",
-  "The Socialite": "🦋",
+const ARCHETYPES: Record<ArchetypeKey, ArchetypeData> = {
+  GHOST: {
+    themeClass: "persona-badge-lurker",
+    description: "Barely any outward replies detected. You watch from the shadows.",
+    emojis: ["👻", "🦗", "🥷", "🤫", "🕸️", "🕴️", "🌑"],
+    labels: [
+      "The Phantom", "Ghost in the Machine", "Lurking Legend", "Digital Monastic", "The Silent Observer",
+      "Vow of Silence", "Echo in the Void", "The Unseen", "Read-Only Mode", "Data Consumer",
+      "Profile Picture Only", "The Mute", "The Abstainer", "Twitter Celibate", "Timeline Voyeur",
+      "The Fly on the Wall", "Schrödinger's Account", "The Ghost Town", "Zero Keystrokes", "The Stealth Bomber"
+    ],
+    quotes: [
+      "You opened the app and chose silence.",
+      "Your reply button is collecting dust.",
+      "Are you sure you even USE this app?",
+      "The quietest person in the room.",
+      "You consume more than you create — respect the stealth.",
+      "Bro is in incognito mode 24/7.",
+      "Not a single digital footprint left behind.",
+      "Do you even know what the reply button looks like?",
+      "A literal ghost haunting the timeline.",
+      "You reply so little we thought this was a bot account.",
+      "Breathing requires more effort than your Twitter presence.",
+      "Your keyboard is pristine, untouched by human hands.",
+      "The timeline's most diligent watcher.",
+      "You have a black belt in minding your own business.",
+      "The digital equivalent of a tumbleweed.",
+      "We had to check twice to make sure you were real.",
+      "You probably read the Terms of Service for fun.",
+      "A true master of the Irish Goodbye on every thread.",
+      "Your drafts folder must be a graveyard of second thoughts.",
+      "You let everyone else do the talking. Very demure."
+    ]
+  },
+  CASUAL: {
+    themeClass: "persona-badge-socialite",
+    description: "Sparse timeline activity. You occasionally dip your toes in the water.",
+    emojis: ["🍃", "☕", "🚶", "🌤️", "🧘", "🤷", "🐢"],
+    labels: [
+      "The Casual Scroller", "Occasional Chirp", "Fair-Weather Replier", "The Intermittent Voice", "Drive-by Replier",
+      "The Restrained", "Lukewarm Take", "Weekend Warrior", "The Hesitant", "Draft Deleter",
+      "The Spectator", "Picky Eater", "Casual Acquaintance", "The Window Shopper", "Tea Sipper",
+      "The Browser", "The Commuter", "The Sparse Poster", "Half-Hearted Scroller", "The Part-Timer"
+    ],
+    quotes: [
+      "You only reply when the stars align perfectly.",
+      "A healthy relationship with social media? Disgusting.",
+      "You exist, but just barely.",
+      "You're only here for the memes, aren't you?",
+      "Your takes are lukewarm at best.",
+      "You type, you pause, you delete. The classic combo.",
+      "You contribute just enough to prove you're alive.",
+      "The 'I don't really use Twitter' final boss.",
+      "Replying is a chore for you, we can tell.",
+      "You treat the reply button like a sacred artifact.",
+      "You step into the discourse, sniff the air, and leave.",
+      "Chronically offline behavior detected.",
+      "You touch grass on a regular basis. Wild.",
+      "You're just passing through. Have a safe flight.",
+      "A casual observer of the digital circus.",
+      "You post like you're paying per character.",
+      "Just enough engagement to trigger the algorithm.",
+      "You keep your digital distance. Smart.",
+      "A gentle breeze in a hurricane of takes.",
+      "You're doing great. Keep touching that grass."
+    ]
+  },
+  REGULAR: {
+    themeClass: "persona-badge-socialite",
+    description: "Balanced replier. No single target dominates your attention. Healthy!",
+    emojis: ["🦋", "🤝", "🏛️", "💅", "🗣️", "🥂", "💬"],
+    labels: [
+      "The Socialite", "Watercooler Regular", "Timeline Small Talker", "Vibe Checker", "The Chitchatter",
+      "Average Joe", "The Networker", "The Mingle Master", "Mid-Tier Poster", "The Casual Debater",
+      "The Back-and-Forther", "The Participant", "The Contributor", "The Mixer", "The Social Butterfly",
+      "The Balanced Diet", "The Commentator", "The Centrist", "Timeline Tenant", "The Town Square Regular"
+    ],
+    quotes: [
+      "Spreading the love evenly — nobody gets too much attention.",
+      "You reply like a diplomat — balanced and measured.",
+      "A healthy reply diet! Someone's emotionally stable.",
+      "You interact with everyone. How civic of you.",
+      "Normal reply behavior detected. Boring, but healthy.",
+      "You're the glue holding the timeline together.",
+      "Just a regular person having regular conversations. Weirdo.",
+      "You actually use this app for its intended purpose.",
+      "The goldilocks of engagement: neither too hot nor too cold.",
+      "You treat the timeline like a friendly neighborhood.",
+      "A functioning member of digital society.",
+      "You keep the group chats alive.",
+      "Pleasant, active, completely average.",
+      "You're why the servers stay on. Solid middle class of Twitter.",
+      "Small talk is your native language.",
+      "You reply just enough to be remembered, but not enough to be muted.",
+      "You leave a comment, sip your coffee, and move on.",
+      "Perfectly balanced, as all things should be.",
+      "You've mastered the art of the 5-word reply.",
+      "A pillar of the community, frankly."
+    ]
+  },
+  ADDICT: {
+    themeClass: "persona-badge-demon",
+    description: "You reply heavily. You have an opinion on literally everything.",
+    emojis: ["🗣️", "🍿", "📱", "🔋", "🛎️", "🎙️", "🔥"],
+    labels: [
+      "The Opinionated", "The Chatterbox", "The Frequent Flier", "The Keyboard Warmer", "The Extrovert",
+      "The Active Citizen", "Always Online", "The Takes Machine", "The Local Mayor", "The Discourse Addict",
+      "The Two Cents Giver", "The Mention Maniac", "The Constant Commentator", "The Yapper", "The Timeline Sheriff",
+      "The Engagement Farmer", "The Notify Button", "The Too-Invested", "The Thread Unroller", "The Ping Pong Champion"
+    ],
+    quotes: [
+      "You reply more than some people breathe.",
+      "You have an opinion on literally everything.",
+      "Your screen time is probably a war crime.",
+      "Do you ever put the phone down?",
+      "You're the reason people turn off notifications.",
+      "You've never seen a take you couldn't counter.",
+      "Your thumbs have six-packs.",
+      "You treat every tweet like a personal invitation to speak.",
+      "The timeline isn't ready for your level of yap.",
+      "You've monetized the concept of 'just saying'.",
+      "Bro is fighting invisible demons in the replies.",
+      "Your WiFi provider is begging for mercy.",
+      "You're chronically online and we're all worried.",
+      "A permanent fixture in everyone's mentions.",
+      "You reply so fast it's like a jump scare.",
+      "You'd reply to a blank tweet just to be first.",
+      "A true warrior of the digital age.",
+      "The algorithm works hard, but you work harder.",
+      "You have a PhD in uncalled-for opinions.",
+      "You don't just read the timeline, you narrate it."
+    ]
+  },
+  DEMON: {
+    themeClass: "persona-badge-demon",
+    description: "You average an insane amount of replies. Your timeline IS your replies.",
+    emojis: ["💀", "😈", "👹", "☢️", "🚀", "🌪️", "🛑"],
+    labels: [
+      "The Reply Demon", "The Notification Terrorist", "Keyboard Warrior", "The Terminal Poster", "The Thread Hijacker",
+      "The Discourse Dominator", "The Relentless", "The Screen Addict", "The Typist", "The Reply Sweats",
+      "The Timeline Tyrant", "The Extremely Online", "The Incessant", "The Infinite Typewriter", "The Final Boss of Replies",
+      "The Omnipresent", "The Absolute Menace", "The Digital Poltergeist", "The Touch Grass Averse", "The Keyboard Destroyer"
+    ],
+    quotes: [
+      "Your keyboard needs therapy from the way you abuse it.",
+      "Twitter should charge you a subscription just for replying.",
+      "You're not on Twitter, Twitter is on YOU.",
+      "Most people scroll. You type. At an alarming rate.",
+      "You are a weapon of mass notification.",
+      "You have achieved a state of permanent typing.",
+      "A literal menace to the servers.",
+      "You reply to things before they are even tweeted.",
+      "Your autocorrect has given up completely.",
+      "Is there a doctor present? This person hasn't blinked in days.",
+      "You are the final boss of the internet.",
+      "If replying burned calories, you wouldn't exist.",
+      "You consider sleep a threat to your engagement.",
+      "You exist purely as text on a screen at this point.",
+      "The app developer didn't anticipate someone like you.",
+      "You're the reason rate limits were invented.",
+      "There is grass outside. Pls touch it.",
+      "Total ecosystem collapse caused by your daily output.",
+      "You don't just post, you deploy.",
+      "The absolute pinnacle of unhinged reply guy energy."
+    ]
+  },
+  GLAZER: {
+    themeClass: "persona-badge-glazer",
+    description: "Over 40% of your replies go to ONE person. That's not engagement, that's devotion.",
+    emojis: ["🍩", "🥺", "👑", "🏇", "🎯", "🔭", "💫"],
+    labels: [
+      "The Elite Glazer", "The Professional Glazer", "The Sycophant", "The Fan Page", "The Number One Fan",
+      "The Reply Guy (Obsessive)", "The Personal Hype Man", "The Orbiting Moon", "The Stan", "The Devotee",
+      "The Disciple", "The Cheerleader", "The Dedicated Follower", "The Groupie", "The Worship Center",
+      "The Cult Member", "The Echo", "The Shadow", "The Hype Beast", "The Loyal Subject"
+    ],
+    quotes: [
+      "You don't reply to tweets, you write love letters.",
+      "That person's notifications? That's basically YOUR profile page.",
+      "You're not a fan, you're a franchise.",
+      "Bro is one reply away from a restraining order.",
+      "You hit reply faster than they hit tweet.",
+      "They sneeze, you say bless you in the replies.",
+      "You glaze them so hard they look like a donut.",
+      "Does their PR team pay you, or do you do this for free?",
+      "A true acolyte in the church of your top target.",
+      "You're orbiting them like a satellite with a keyboard.",
+      "If they jumped off a bridge, you'd reply 'W' on the way down.",
+      "You're the president of their unofficial fan club.",
+      "You've built your entire digital identity around someone else.",
+      "You protect their replies like a secret service agent.",
+      "They don't even know you exist bro. It's time to move on.",
+      "The glazing is terminal. There is no cure.",
+      "You reply like your life depends on their validation.",
+      "You are the wind beneath their wings.",
+      "The most loyal soldier in the digital trenches.",
+      "You make Swifties look casually interested."
+    ]
+  },
+  MAIN_CHARACTER: {
+    themeClass: "persona-badge-main",
+    description: "You mostly reply to yourself. You're having a public monologue.",
+    emojis: ["🪞", "📓", "📝", "🗣️", "📖", "🎤", "🎙️"],
+    labels: [
+      "The Main Character", "The Monologuer", "The Journaler", "The Narcissus", "The One-Man Show",
+      "The Thread Author", "The Public Diarist", "The Echo Chamber of One", "The Soliloquist", "The Self-Referential",
+      "The Autobiography", "The Soapbox Proprietor", "The Lecturer", "The Solo Podcast", "The Mirror Talker",
+      "The Diary Entry", "The Storyteller", "The Broadcaster", "The TED Talker", "The Lone Wolf"
+    ],
+    quotes: [
+      "You're literally having a conversation with yourself.",
+      "Your threads have more chapters than a Harry Potter book.",
+      "Nobody asked but you answered... to yourself... 15 times.",
+      "Self-replying isn't a hobby, it's a personality disorder.",
+      "You don't need followers, you ARE your audience.",
+      "Does your arm hurt from patting yourself on the back?",
+      "You treat Twitter like a dear diary.",
+      "You're running a solo marathon in the timeline.",
+      "A one-person echo chamber of unprompted thoughts.",
+      "You love the sound of your own digital voice.",
+      "You supply both sides of the conversation.",
+      "A self-sustaining ecosystem of replies.",
+      "You've successfully eliminated the need for other people.",
+      "You reply to yourself because you're the only one who listens.",
+      "You're writing an autobiography one tweet at a time.",
+      "Why speak to others when you can just agree with yourself?",
+      "The ultimate solipsist of the social media age.",
+      "You are your own biggest fan.",
+      "Bro is delivering a keynote address to an empty room.",
+      "You consider yourself the protagonist of reality."
+    ]
+  }
 };
 
 function runAlgorithm(
@@ -748,20 +941,6 @@ function runAlgorithm(
   const totalReplies = totalOutwardReplies + totalSelfReplies;
   const selfReplyPct = totalReplies > 0 ? (totalSelfReplies / totalReplies) * 100 : 0;
 
-  // ─── Persona Assignment ─────────────────────────────────────────────────
-  let persona: PersonaType;
-  if (topTargetPct > 40) {
-    persona = "The Elite Glazer";
-  } else if (dailyVelocity > 15) {
-    persona = "The Reply Demon";
-  } else if (selfReplyPct > 80) {
-    persona = "The Main Character";
-  } else if (totalOutwardReplies < 5) {
-    persona = "The Lurker";
-  } else {
-    persona = "The Socialite";
-  }
-
   // ─── Intensity Score (0-100) ────────────────────────────────────────────
   // Weighted formula:
   // - Daily Velocity contribution (0-40 pts): scales up to 300 replies/day
@@ -776,17 +955,41 @@ function runAlgorithm(
     Math.min(100, velocityScore + ratioScore + concentrationScore + volumeScore)
   );
 
-  // Savage Quote
-  const quotes = SAVAGE_QUOTES[persona];
-  const savageQuote = quotes[Math.floor((totalOutwardReplies + intensityScore) % quotes.length)];
+  // ─── Persona Assignment ─────────────────────────────────────────────────
+  let archetypeKey: ArchetypeKey;
+  if (topTargetPct > 40) {
+    archetypeKey = "GLAZER";
+  } else if (selfReplyPct > 80) {
+    archetypeKey = "MAIN_CHARACTER";
+  } else {
+    if (intensityScore >= 86) {
+      archetypeKey = "DEMON";
+    } else if (intensityScore >= 61) {
+      archetypeKey = "ADDICT";
+    } else if (intensityScore >= 36) {
+      archetypeKey = "REGULAR";
+    } else if (intensityScore >= 16) {
+      archetypeKey = "CASUAL";
+    } else {
+      archetypeKey = "GHOST";
+    }
+  }
+
+  const archetype = ARCHETYPES[archetypeKey];
+  // Deterministic random using score + total replies so the user gets a consistent result
+  const seed = totalOutwardReplies + intensityScore;
+  const label = archetype.labels[seed % archetype.labels.length];
+  const quote = archetype.quotes[(seed + 1) % archetype.quotes.length];
+  const emoji = archetype.emojis[(seed + 2) % archetype.emojis.length];
 
   return {
-    persona,
-    personaEmoji: PERSONA_EMOJIS[persona],
-    personaDescription: PERSONA_DESCRIPTIONS[persona],
-    savageQuote,
+    persona: label,
+    personaEmoji: emoji,
+    personaDescription: archetype.description,
+    savageQuote: quote,
+    themeClass: archetype.themeClass,
     intensityScore,
-    replyRatio: Math.round(replyRatio * 10) / 10, // e.g. 48.3%
+    replyRatio: Math.round(replyRatio * 10) / 10,
     dailyVelocity: Math.round(dailyVelocity * 10) / 10,
     totalOutwardReplies,
     totalSelfReplies,
@@ -825,7 +1028,7 @@ export async function analyzeMyReplies(username: string): Promise<IntensityAudit
 
   const getCachedAnalysis = unstable_cache(
     async () => performActualScraping(clean),
-    [`reply-intensity-v1-${clean}`],
+    [`reply-intensity-v2-${clean}`],
     { revalidate: 300 } // 5 minute cache
   );
 
