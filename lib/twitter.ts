@@ -943,17 +943,22 @@ function runAlgorithm(
   const selfReplyPct = totalReplies > 0 ? (totalSelfReplies / totalReplies) * 100 : 0;
 
   // ─── Intensity Score (0-100) ────────────────────────────────────────────
-  // Weighted formula:
-  // - Daily Velocity contribution (0-40 pts): scales up to 300 replies/day
-  // - Reply % contribution (0-25 pts): % of posts that are outward replies
-  // - Target Concentration contribution (0-25 pts)
-  // - Volume bonus (0-10 pts): scales up to 500 outward replies
-  const velocityScore = Math.min(40, (dailyVelocity / 300) * 40);
+  // Recalibrated weighted formula (v2):
+  // - Daily Velocity (0-45 pts): primary signal, scales up to 200 replies/day
+  // - Reply % (0-25 pts): % of all posts that are outward replies
+  // - Engagement Breadth (0-20 pts): unique targets replied to (scaled to 50)
+  // - Volume bonus (0-10 pts): raw outward reply count (scaled to 300)
+  //
+  // NOTE: Concentration (glazing) is used for persona detection but NOT for
+  // the intensity score. A user who replies to 200 different people 300x/day
+  // should score HIGHER than someone who glazes 1 account 30x/day.
+  const uniqueTargets = targetCounts.size;
+  const velocityScore = Math.min(45, (dailyVelocity / 200) * 45);
   const ratioScore = Math.min(25, (replyRatio / 100) * 25);
-  const concentrationScore = Math.min(25, (topTargetPct / 100) * 25);
-  const volumeScore = Math.min(10, (totalOutwardReplies / 500) * 10);
+  const breadthScore = Math.min(20, (uniqueTargets / 50) * 20);
+  const volumeScore = Math.min(10, (totalOutwardReplies / 300) * 10);
   const intensityScore = Math.round(
-    Math.min(100, velocityScore + ratioScore + concentrationScore + volumeScore)
+    Math.min(100, velocityScore + ratioScore + breadthScore + volumeScore)
   );
 
   // ─── Persona Assignment ─────────────────────────────────────────────────
@@ -1029,7 +1034,7 @@ export async function analyzeMyReplies(username: string): Promise<IntensityAudit
 
   const getCachedAnalysis = unstable_cache(
     async () => performActualScraping(clean),
-    [`reply-intensity-v2-${clean}`],
+    [`reply-intensity-v3-${clean}`],
     { revalidate: 300 } // 5 minute cache
   );
 
