@@ -486,9 +486,9 @@ async function fetchRepliesTab(
       i.type === "TimelineAddEntries" ? ((i.entries ?? []) as Entry[]) : []
     );
 
-    let oldestOnPage = Infinity;
     let foundEntries = false;
     let pageNewCount = 0;
+    let pageOutOfWindowCount = 0;
 
     for (const e of entries) {
       // Handle single tweet entries
@@ -501,19 +501,11 @@ async function fetchRepliesTab(
         if (!parsed || seenIds.has(parsed.id)) continue;
         seenIds.add(parsed.id);
 
-        // For determining the actual timeline progress, ignore retweet timestamps,
-        // since retweeting an ancient tweet shouldn't incorrectly signal the end of the 7-day window.
-        if (
-          !parsed.isRetweet &&
-          parsed.createdAt > 0 &&
-          parsed.createdAt < oldestOnPage &&
-          parsed.authorHandle.toLowerCase() === userHandle.toLowerCase()
-        ) {
-          oldestOnPage = parsed.createdAt;
-        }
-
         // Only include entries within the 7-day window
-        if (parsed.createdAt > 0 && parsed.createdAt < sevenDaysAgo) continue;
+        if (parsed.createdAt > 0 && parsed.createdAt < sevenDaysAgo) {
+          pageOutOfWindowCount++;
+          continue;
+        }
 
         allEntries.push(parsed);
         foundEntries = true;
@@ -532,16 +524,10 @@ async function fetchRepliesTab(
           if (!parsed || seenIds.has(parsed.id)) continue;
           seenIds.add(parsed.id);
 
-          if (
-            !parsed.isRetweet &&
-            parsed.createdAt > 0 &&
-            parsed.createdAt < oldestOnPage &&
-            parsed.authorHandle.toLowerCase() === userHandle.toLowerCase()
-          ) {
-            oldestOnPage = parsed.createdAt;
+          if (parsed.createdAt > 0 && parsed.createdAt < sevenDaysAgo) {
+            pageOutOfWindowCount++;
+            continue;
           }
-
-          if (parsed.createdAt > 0 && parsed.createdAt < sevenDaysAgo) continue;
 
           allEntries.push(parsed);
           foundEntries = true;
@@ -550,9 +536,12 @@ async function fetchRepliesTab(
       }
     }
 
-    // If the oldest tweet on this page is older than 7 days, we've covered the window
-    if (oldestOnPage < sevenDaysAgo) {
-      console.log(`[scraper] Page ${page + 1}: Reached 7-day boundary. Stopping. (${allEntries.length} total entries)`);
+    // If the majority of entries on this page are outside the 7-day window,
+    // we've crossed the boundary — stop scraping.
+    // This is much more robust than tracking a single "oldest" timestamp,
+    // which could be thrown off by one old self-reply in a conversation thread.
+    if (pageOutOfWindowCount > 0 && pageOutOfWindowCount >= pageNewCount) {
+      console.log(`[scraper] Page ${page + 1}: Reached 7-day boundary (${pageOutOfWindowCount} old vs ${pageNewCount} new). Stopping. (${allEntries.length} total entries)`);
       break;
     }
 
@@ -577,11 +566,8 @@ async function fetchRepliesTab(
     }
     cursor = nextCursor;
 
-    const oldestDateStr = oldestOnPage < Infinity 
-      ? new Date(oldestOnPage).toISOString().slice(0, 16) 
-      : "N/A";
     console.log(
-      `[scraper] Page ${page + 1}: +${pageNewCount} new, ${allEntries.length} total, oldest: ${oldestDateStr}`
+      `[scraper] Page ${page + 1}: +${pageNewCount} new, ${allEntries.length} total${pageOutOfWindowCount > 0 ? `, ${pageOutOfWindowCount} skipped (old)` : ""}`
     );
 
     // Throttle between pages — 200ms keeps total time reasonable even at 50 pages
