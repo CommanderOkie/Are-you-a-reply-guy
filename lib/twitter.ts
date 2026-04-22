@@ -904,13 +904,19 @@ function runAlgorithm(
     }
   }
 
-  // Calculate window in days
-  const windowMs =
+  // Calculate window — always report as 7-day window
+  // The scraper is designed to pull all data within the last 7 days.
+  // Even if a user's tweets only span 2 days, we still report the velocity
+  // as an average over 7 days to keep comparisons fair across all users.
+  const actualWindowMs =
     earliestTimestamp < Infinity && latestTimestamp > 0
       ? latestTimestamp - earliestTimestamp
       : SEVEN_DAYS_MS;
-  const windowDaysFractional = Math.max(1, windowMs / (24 * 60 * 60 * 1000));
-  const windowDays = Math.max(1, Math.ceil(windowDaysFractional));
+  const actualWindowDays = Math.max(1, actualWindowMs / (24 * 60 * 60 * 1000));
+  
+  // Always use 7 days for velocity calculation and display
+  const windowDaysFractional = Math.max(actualWindowDays, 7);
+  const windowDays = 7;
 
   // Total posts by this user (originals + outward replies + self-replies)
   const totalPostsAnalyzed = totalOriginalTweets + totalOutwardReplies + totalSelfReplies;
@@ -918,7 +924,7 @@ function runAlgorithm(
   // Reply Ratio — what % of all posts are outward replies
   const replyRatio = totalPostsAnalyzed > 0 ? (totalOutwardReplies / totalPostsAnalyzed) * 100 : 0;
 
-  // Daily Velocity — use fractional days for accurate calculation
+  // Daily Velocity — always divided by 7 days for fair comparison
   const dailyVelocity = totalOutwardReplies / windowDaysFractional;
 
   // Top Targets
@@ -1035,7 +1041,7 @@ export async function analyzeMyReplies(username: string): Promise<IntensityAudit
 
   const getCachedAnalysis = unstable_cache(
     async () => performActualScraping(clean),
-    [`reply-intensity-v3-${clean}`],
+    [`reply-intensity-v4-${clean}`],
     { revalidate: 300 } // 5 minute cache
   );
 
